@@ -2955,7 +2955,7 @@ Sigma_Exit:
     {
       if(code_seen('S'))
       {
-        retract_length = code_value() ;
+        retract_length = code_value() / 10.0;
       }
       if(code_seen('F'))
       {
@@ -2970,7 +2970,7 @@ Sigma_Exit:
     {
       if(code_seen('S'))
       {
-        retract_recover_length = code_value() ;
+        retract_recover_length = code_value() / 10.0;
       }
       if(code_seen('F'))
       {
