@@ -78,7 +78,7 @@
 #define EXTRUDER_0_AUTO_FAN_PIN   11
 #define EXTRUDER_1_AUTO_FAN_PIN   11
 #define EXTRUDER_2_AUTO_FAN_PIN   -1
-#define EXTRUDER_AUTO_FAN_TEMPERATURE 35
+#define EXTRUDER_AUTO_FAN_TEMPERATURE 50
 #define EXTRUDER_AUTO_FAN_SPEED   255  // == full speed
 
 
@@ -363,9 +363,10 @@
 //#define ADVANCE
 
 #ifdef ADVANCE
-  #define EXTRUDER_ADVANCE_K .0
+  #define EXTRUDER_ADVANCE_K .03
 
-  #define D_FILAMENT 2.85
+  #define D_FILAMENT 1.7
+  //#define STEPS_MM_E 836
   #define STEPS_MM_E 836
   #define EXTRUSION_AREA (0.25 * D_FILAMENT * D_FILAMENT * 3.14159)
   #define STEPS_PER_CUBIC_MM_E (axis_steps_per_unit[E_AXIS]/ EXTRUSION_AREA)
@@ -431,14 +432,14 @@ const unsigned int dropsegments=5; //everything with less than this number of st
 // until then, intended retractions can be detected by moves that only extrude and the direction.
 // the moves are than replaced by the firmware controlled ones.
 
-// #define FWRETRACT  //ONLY PARTIALLY TESTED
+#define FWRETRACT  //ONLY PARTIALLY TESTED
 #ifdef FWRETRACT
   #define MIN_RETRACT 0.1                //minimum extruded mm to accept a automatic gcode retraction attempt
-  #define RETRACT_LENGTH 3               //default retract length (positive mm)
+  #define RETRACT_LENGTH 0.7               //default retract length (positive mm)
   #define RETRACT_LENGTH_SWAP 13         //default swap retract length (positive mm), for extruder change
   #define RETRACT_FEEDRATE 45            //default feedrate for retracting (mm/s)
-  #define RETRACT_ZLIFT 0                //default retract Z-lift
-  #define RETRACT_RECOVER_LENGTH 0       //default additional recover length (mm, added to retract length when recovering)
+  #define RETRACT_ZLIFT 0.1                //default retract Z-lift
+  #define RETRACT_RECOVER_LENGTH 0.1       //default additional recover length (mm, added to retract length when recovering)
   #define RETRACT_RECOVER_LENGTH_SWAP 0  //default additional swap recover length (mm, added to retract length when recovering from extruder change)
   #define RETRACT_RECOVER_FEEDRATE 8     //default feedrate for recovering from retraction (mm/s)
 #endif
