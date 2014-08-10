@@ -657,6 +657,8 @@
 
   #if MB(RAMPS_13_EFB) || MB(RAMPS_13_EFF) || MB(AZTEEG_X3) || MB(AZTEEG_X3_PRO)
     #define FAN_PIN            9 // (Sprinter config)
+  #elif MB(RAMPS_13_EEB_S)
+    #define FAN_PIN            6
   #else
     #define FAN_PIN            4 // IO pin. Buffer needed
   #endif
@@ -729,20 +731,30 @@
 
   #define TEMP_BED_PIN       14   // ANALOG NUMBERING
 
+  #if MB(RAMPS_13_EEB_S)
   #ifdef NUM_SERVOS
-    #define SERVO0_PIN         11
+    #define SERVO0_PIN         42
 
     #if NUM_SERVOS > 1
-      #define SERVO1_PIN         6
+      #error Motherboard does not support more than one servo (you can try to define more in pins.h)
     #endif
+  #endif
+  #else
+      #ifdef NUM_SERVOS
+        #define SERVO0_PIN         11
 
-    #if NUM_SERVOS > 2
-      #define SERVO2_PIN         5
-    #endif
+        #if NUM_SERVOS > 1
+          #define SERVO1_PIN         6
+        #endif
 
-    #if NUM_SERVOS > 3
-      #define SERVO3_PIN         4
-    #endif
+        #if NUM_SERVOS > 2
+          #define SERVO2_PIN         5
+        #endif
+
+        #if NUM_SERVOS > 3
+          #define SERVO3_PIN         4
+        #endif
+      #endif
   #endif
 
   #if MB(AZTEEG_X3_PRO)

@@ -12,6 +12,7 @@
 #define BOARD_RAMPS_OLD         3    // MEGA/RAMPS up to 1.2
 #define BOARD_RAMPS_13_EFB      33   // RAMPS 1.3 / 1.4 (Power outputs: Extruder, Fan, Bed)
 #define BOARD_RAMPS_13_EEB      34   // RAMPS 1.3 / 1.4 (Power outputs: Extruder0, Extruder1, Bed)
+#define BOARD_RAMPS_13_EEB_S    37   // RAMPS 1.3 / 1.4 (Power outputs: Extruder0, Extruder1, Bed) + Servo on pin D42 + RRD Fan Extender (pin6 is fan)
 #define BOARD_RAMPS_13_EFF      35   // RAMPS 1.3 / 1.4 (Power outputs: Extruder, Fan, Fan)
 #define BOARD_RAMPS_13_EEF      36   // RAMPS 1.3 / 1.4 (Power outputs: Extruder0, Extruder1, Fan)
 #define BOARD_DUEMILANOVE_328P  4    // Duemilanove w/ ATMega328P pin assignment
@@ -50,6 +51,6 @@
 #define BOARD_99                99   // This is in pins.h but...?
 
 #define MB(board) (MOTHERBOARD==BOARD_##board)
-#define IS_RAMPS (MB(RAMPS_OLD) || MB(RAMPS_13_EFB) || MB(RAMPS_13_EEB) || MB(RAMPS_13_EFF) || MB(RAMPS_13_EEF))
+#define IS_RAMPS (MB(RAMPS_OLD) || MB(RAMPS_13_EFB) || MB(RAMPS_13_EEB) || MB(RAMPS_13_EEB_S) | MB(RAMPS_13_EFF) || MB(RAMPS_13_EEF))
 
 #endif //__BOARDS_H
