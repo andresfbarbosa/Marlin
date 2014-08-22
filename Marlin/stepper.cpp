@@ -558,6 +558,7 @@ ISR(TIMER1_COMPA_vect)
       }
       #endif //ADVANCE
 
+	    bool disable_x = false;
         counter_x += current_block->steps_x;
         #ifdef CONFIG_STEPPERS_TOSHIBA
 	/* The toshiba stepper controller require much longer pulses
@@ -628,23 +629,11 @@ ISR(TIMER1_COMPA_vect)
         #endif        
           counter_x -= current_block->step_event_count;
           count_position[X_AXIS]+=count_direction[X_AXIS];   
-        #ifdef DUAL_X_CARRIAGE
-          if (extruder_duplication_enabled){
-            WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
-            WRITE(X2_STEP_PIN, INVERT_X_STEP_PIN);
-          }
-          else {
-            if (current_block->active_extruder != 0)
-              WRITE(X2_STEP_PIN, INVERT_X_STEP_PIN);
-            else
-              WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
-          }
-        #else
-          WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
-        #endif
+		  disable_x = true;
         }
 
         counter_y += current_block->steps_y;
+		bool disable_y = false;
         if (counter_y > 0) {
           WRITE(Y_STEP_PIN, !INVERT_Y_STEP_PIN);
 		  
@@ -653,15 +642,12 @@ ISR(TIMER1_COMPA_vect)
 		  #endif
 		  
           counter_y -= current_block->step_event_count;
-          count_position[Y_AXIS]+=count_direction[Y_AXIS];
-          WRITE(Y_STEP_PIN, INVERT_Y_STEP_PIN);
-		  
-		  #ifdef Y_DUAL_STEPPER_DRIVERS
-			WRITE(Y2_STEP_PIN, INVERT_Y_STEP_PIN);
-		  #endif
+          count_position[Y_AXIS]+=count_direction[Y_AXIS]; 
+		  disable_y = true;
         }
 
       counter_z += current_block->steps_z;
+	  bool disable_z = false;
       if (counter_z > 0) {
         WRITE(Z_STEP_PIN, !INVERT_Z_STEP_PIN);
         
@@ -670,14 +656,47 @@ ISR(TIMER1_COMPA_vect)
         #endif
 
         counter_z -= current_block->step_event_count;
-        count_position[Z_AXIS]+=count_direction[Z_AXIS];
+        count_position[Z_AXIS]+=count_direction[Z_AXIS];		
+		disable_z = true;
+      }	  
+	  
+	  #if defined(EXTEND_STEP_PULSE_USEC)
+	  delayMicroseconds(EXTEND_STEP_PULSE_USEC);
+      #endif
+		
+	  if(disable_x) {
+	    #ifdef DUAL_X_CARRIAGE
+	    if (extruder_duplication_enabled){
+		  WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
+		  WRITE(X2_STEP_PIN, INVERT_X_STEP_PIN);
+	    }
+	    else {
+	    	if (current_block->active_extruder != 0)
+		    WRITE(X2_STEP_PIN, INVERT_X_STEP_PIN);
+		  else
+		    WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
+	    }
+	    #else
+	    WRITE(X_STEP_PIN, INVERT_X_STEP_PIN);
+	    #endif
+	  }
+	
+	  if(disable_y) {
+        WRITE(Y_STEP_PIN, INVERT_Y_STEP_PIN);
+	   
+	    #ifdef Y_DUAL_STEPPER_DRIVERS
+	    WRITE(Y2_STEP_PIN, INVERT_Y_STEP_PIN);
+	    #endif
+	  }
+		
+	  if(disable_z) {		
         WRITE(Z_STEP_PIN, INVERT_Z_STEP_PIN);
         
         #ifdef Z_DUAL_STEPPER_DRIVERS
-          WRITE(Z2_STEP_PIN, INVERT_Z_STEP_PIN);
+        WRITE(Z2_STEP_PIN, INVERT_Z_STEP_PIN);
         #endif
-      }
-
+	  }
+		
       #ifndef ADVANCE
         counter_e += current_block->steps_e;
         if (counter_e > 0) {
