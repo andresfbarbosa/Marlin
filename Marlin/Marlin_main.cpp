@@ -419,21 +419,21 @@ void serial_echopair_P(const char *s_P, unsigned long v)
   int freeMemory() { return SdFatUtil::FreeRam(); }
 #else
   extern "C" {
-    extern unsigned int __bss_end;
-    extern unsigned int __heap_start;
-    extern void *__brkval;
+  extern unsigned int __bss_end;
+  extern unsigned int __heap_start;
+  extern void *__brkval;
 
-    int freeMemory() {
-      int free_memory;
+  int freeMemory() {
+    int free_memory;
 
       if ((int)__brkval == 0)
-        free_memory = ((int)&free_memory) - ((int)&__bss_end);
-      else
-        free_memory = ((int)&free_memory) - ((int)__brkval);
+      free_memory = ((int)&free_memory) - ((int)&__bss_end);
+    else
+      free_memory = ((int)&free_memory) - ((int)__brkval);
 
-      return free_memory;
-    }
+    return free_memory;
   }
+}
 #endif //!SDSUPPORT
 
 //adds an command to the main command buffer
@@ -603,7 +603,7 @@ void setup()
   st_init();    // Initialize stepper, this enables interrupts!
   setup_photpin();
   servo_init();
-  
+
 
   lcd_init();
   _delay_ms(1000);	// wait 1sec to display the splash screen
@@ -1150,7 +1150,7 @@ static void retract_z_probe() {
 }
 
 /// Probe bed height at position (x,y), returns the measured z value
-static float probe_pt(float x, float y, float z_before) {
+static float probe_pt(float x, float y, float z_before, int retract_probe, int verboseness) {
   // move to right place
   do_blocking_move_to(current_position[X_AXIS], current_position[Y_AXIS], z_before);
   do_blocking_move_to(x - X_PROBE_OFFSET_FROM_EXTRUDER, y - Y_PROBE_OFFSET_FROM_EXTRUDER, current_position[Z_AXIS]);
@@ -1161,9 +1161,11 @@ static float probe_pt(float x, float y, float z_before) {
   run_z_probe();
   float measured_z = current_position[Z_AXIS];
 #ifndef Z_PROBE_SLED
+  if (retract_probe)
   retract_z_probe();
 #endif // Z_PROBE_SLED
 
+  if ( verboseness > 2 ) {
   SERIAL_PROTOCOLPGM(MSG_BED);
   SERIAL_PROTOCOLPGM(" x: ");
   SERIAL_PROTOCOL(x);
@@ -1172,6 +1174,7 @@ static float probe_pt(float x, float y, float z_before) {
   SERIAL_PROTOCOLPGM(" z: ");
   SERIAL_PROTOCOL(measured_z);
   SERIAL_PROTOCOLPGM("\n");
+  }
   return measured_z;
 }
 
@@ -1480,12 +1483,12 @@ void process_commands()
           HOMEAXIS(Z);
 
           calculate_delta(current_position);
-          plan_set_position(delta[X_AXIS], delta[Y_AXIS], delta[Z_AXIS], current_position[E_AXIS]);
-
+          plan_set_position(delta[X_AXIS], delta[Y_AXIS], delta[Z_AXIS], current_position[E_AXIS]);		  
+		  
 #else // NOT DELTA
 
       home_all_axis = !((code_seen(axis_codes[X_AXIS])) || (code_seen(axis_codes[Y_AXIS])) || (code_seen(axis_codes[Z_AXIS])));
-
+	  
       #if Z_HOME_DIR > 0                      // If homing away from BED do Z first
       if((home_all_axis) || (code_seen(axis_codes[Z_AXIS]))) {
         HOMEAXIS(Z);
@@ -1666,8 +1669,49 @@ void process_commands()
       break;
 
 #ifdef ENABLE_AUTO_BED_LEVELING
+//
+// Enable one of these defines to configure a topographical map to be printed for your bed:
+//
+//#define ORIGIN_BACK_LEFT
+//#define ORIGIN_FRONT_RIGHT
+//#define ORIGIN_BACK_RIGHT
+#define ORIGIN_FRONT_LEFT
+//
+//
     case 29: // G29 Detailed Z-Probe, probes the bed at 3 or more points.
+		// Example Syntax:  G29 N 4 V 2 E T
         {
+int retract_flag=0, verbose_level=1, topo_flag=0, n_points=3;
+
+	if ( code_seen('E') || code_seen('e'))
+		retract_flag++;
+
+	if ( code_seen('T') || code_seen('t'))
+		topo_flag++;
+
+	if ( code_seen('V') || code_seen('v')) {
+		verbose_level = code_value();
+		if (verbose_level<0 || verbose_level>4) {
+			SERIAL_PROTOCOLPGM("?Verbose Level not plausable.\n");
+			break;
+		}
+		if (verbose_level>0 ) {
+			SERIAL_PROTOCOLPGM("Roxy's Enhanced G29 Auto_Bed_Leveling Code V1.01:\n");
+			if (verbose_level>2 ) {
+				topo_flag++;
+			}
+		}
+	}
+
+	if ( code_seen('n') ) {
+		n_points = code_value();
+		if (n_points<2 || n_points>AUTO_BED_LEVELING_GRID_POINTS ) {
+			SERIAL_PROTOCOLPGM("?Number of probed points not plausable.\n");
+			break;
+		}
+	}
+
+
             #if Z_MIN_PIN == -1
             #error "You must have a Z_MIN endstop in order to enable Auto Bed Leveling feature!!! Z_MIN_PIN must point to a valid hardware pin."
             #endif
@@ -1701,8 +1745,8 @@ void process_commands()
 #ifdef AUTO_BED_LEVELING_GRID
             // probe at the points of a lattice grid
 
-            int xGridSpacing = (RIGHT_PROBE_BED_POSITION - LEFT_PROBE_BED_POSITION) / (AUTO_BED_LEVELING_GRID_POINTS-1);
-            int yGridSpacing = (BACK_PROBE_BED_POSITION - FRONT_PROBE_BED_POSITION) / (AUTO_BED_LEVELING_GRID_POINTS-1);
+            int xGridSpacing = (RIGHT_PROBE_BED_POSITION - LEFT_PROBE_BED_POSITION) / (n_points-1);
+            int yGridSpacing = (BACK_PROBE_BED_POSITION - FRONT_PROBE_BED_POSITION) / (n_points-1);
 
 
             // solve the plane equation ax + by + d = z
@@ -1716,6 +1760,8 @@ void process_commands()
             // "B" vector of Z points
             double eqnBVector[AUTO_BED_LEVELING_GRID_POINTS*AUTO_BED_LEVELING_GRID_POINTS];
 
+	    double mean=0.0;
+
 
             int probePointCounter = 0;
             bool zig = true;
@@ -1723,6 +1769,14 @@ void process_commands()
             for (int yProbe=FRONT_PROBE_BED_POSITION; yProbe <= BACK_PROBE_BED_POSITION; yProbe += yGridSpacing)
             {
               int xProbe, xInc;
+
+//
+// if the topo_flag is set, we are not going to zig-zag.  We just go one direction in our scanning.
+// This facilitates getting the probe points in an easier to use order
+//
+	      if (topo_flag)
+		      zig = true;
+
               if (zig)
               {
                 xProbe = LEFT_PROBE_BED_POSITION;
@@ -1737,7 +1791,7 @@ void process_commands()
                 zig = true;
               }
 
-              for (int xCount=0; xCount < AUTO_BED_LEVELING_GRID_POINTS; xCount++)
+              for (int xCount=0; xCount < n_points; xCount++)
               {
                 float z_before;
                 if (probePointCounter == 0)
@@ -1750,21 +1804,27 @@ void process_commands()
                   z_before = current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS;
                 }
 
-                float measured_z = probe_pt(xProbe, yProbe, z_before);
+                float measured_z = probe_pt(xProbe, yProbe, z_before, retract_flag, verbose_level);
+
+		mean += measured_z;
 
                 eqnBVector[probePointCounter] = measured_z;
 
-                eqnAMatrix[probePointCounter + 0*AUTO_BED_LEVELING_GRID_POINTS*AUTO_BED_LEVELING_GRID_POINTS] = xProbe;
-                eqnAMatrix[probePointCounter + 1*AUTO_BED_LEVELING_GRID_POINTS*AUTO_BED_LEVELING_GRID_POINTS] = yProbe;
-                eqnAMatrix[probePointCounter + 2*AUTO_BED_LEVELING_GRID_POINTS*AUTO_BED_LEVELING_GRID_POINTS] = 1;
+                eqnAMatrix[probePointCounter + 0*n_points*n_points] = xProbe;
+                eqnAMatrix[probePointCounter + 1*n_points*n_points] = yProbe;
+                eqnAMatrix[probePointCounter + 2*n_points*n_points] = 1;
+
                 probePointCounter++;
                 xProbe += xInc;
               }
             }
+
             clean_up_after_endstop_move();
 
             // solve lsq problem
-            double *plane_equation_coefficients = qr_solve(AUTO_BED_LEVELING_GRID_POINTS*AUTO_BED_LEVELING_GRID_POINTS, 3, eqnAMatrix, eqnBVector);
+            double *plane_equation_coefficients = qr_solve(n_points*n_points, 3, eqnAMatrix, eqnBVector);
+
+	    if (verbose_level ) {
 
             SERIAL_PROTOCOLPGM("Eqn coefficients: a: ");
             SERIAL_PROTOCOL(plane_equation_coefficients[0]);
@@ -1772,6 +1832,84 @@ void process_commands()
             SERIAL_PROTOCOL(plane_equation_coefficients[1]);
             SERIAL_PROTOCOLPGM(" d: ");
             SERIAL_PROTOCOLLN(plane_equation_coefficients[2]);
+	    }
+
+	    mean = mean / (n_points*n_points);
+	    if (verbose_level > 2) {
+		    SERIAL_PROTOCOLPGM("Mean of sampled points: ");
+		    SERIAL_PROTOCOL_F(mean,6);
+		    SERIAL_PROTOCOLPGM(" \n");
+	    }
+
+if (topo_flag) {
+int xx,yy;
+
+	SERIAL_PROTOCOLPGM(" \nBed Height Topography: \n");
+#ifdef ORIGIN_BACK_RIGHT
+	for(yy=0; yy<n_points; yy++) {
+		for(xx=n_points-1; xx>=0; xx--) { 
+		    SERIAL_PROTOCOLPGM(" ");
+		    if ( eqnBVector[yy*n_points+xx]-mean >= 0.0)
+		    	SERIAL_PROTOCOLPGM("+");
+		    else
+		    	SERIAL_PROTOCOLPGM("-");	// we need this extra - because Proterface uses a preportional
+		    					// font and it causes the columns to not line up nice without it.
+		    SERIAL_PROTOCOL_F( eqnBVector[yy*n_points+xx]-mean, 5);
+		}
+		SERIAL_PROTOCOLPGM(" \n");
+	}
+	SERIAL_PROTOCOLPGM(" \n");
+#endif  // ORIGIN_BACK_RIGHT
+
+#ifdef ORIGIN_BACK_LEFT
+	for(yy=0; yy<n_points; yy++) {
+		for(xx=0; xx<n_points; xx++) { 
+		    SERIAL_PROTOCOLPGM(" ");
+		    if ( eqnBVector[yy+xx*n_points]-mean >= 0.0)
+		    	SERIAL_PROTOCOLPGM("+");
+		    else
+		    	SERIAL_PROTOCOLPGM("-");	// we need this extra - because Proterface uses a preportional
+		    					// font and it causes the columns to not line up nice without it.
+		    SERIAL_PROTOCOL_F( eqnBVector[yy+xx*n_points]-mean, 5);
+		}
+		SERIAL_PROTOCOLPGM(" \n");
+	}
+	SERIAL_PROTOCOLPGM(" \n");
+#endif  // ORIGIN_BACK_LEFT
+
+
+#ifdef ORIGIN_FRONT_LEFT
+	for(yy=n_points-1; yy>=0; yy--) {
+		for(xx=0; xx<n_points; xx++) { 
+		    SERIAL_PROTOCOLPGM(" ");
+		    if ( eqnBVector[yy*n_points+xx]-mean >= 0.0)
+		    	SERIAL_PROTOCOLPGM("+");
+		    else
+		    	SERIAL_PROTOCOLPGM("-");	// we need this extra - because Proterface uses a preportional
+		    					// font and it causes the columns to not line up nice without it.
+		    SERIAL_PROTOCOL_F( eqnBVector[yy*n_points+xx]-mean, 5);
+		}
+		SERIAL_PROTOCOLPGM(" \n");
+	}
+	SERIAL_PROTOCOLPGM(" \n");
+#endif  // ORIGIN_FRONT_LEFT
+
+#ifdef ORIGIN_FRONT_RIGHT
+	for(yy=n_points-1; yy>=0; yy--) {
+		for(xx=n_points-1; xx>=0; xx--) { 
+		    SERIAL_PROTOCOLPGM(" ");
+		    if ( eqnBVector[yy+xx*n_points]-mean >= 0.0)
+		    	SERIAL_PROTOCOLPGM("+");
+		    else
+		    	SERIAL_PROTOCOLPGM("-");	// we need this extra - because Proterface uses a preportional
+		    					// font and it causes the columns to not line up nice without it.
+		    SERIAL_PROTOCOL_F( eqnBVector[n_points*n_points-yy-n_points*xx-1]-mean, 5);
+		}
+		SERIAL_PROTOCOLPGM(" \n");
+	}
+	SERIAL_PROTOCOLPGM(" \n");
+#endif  // ORIGIN_FRONT_RIGHT
+}
 
 
             set_bed_level_equation_lsq(plane_equation_coefficients);
@@ -1782,13 +1920,13 @@ void process_commands()
 
             // Probe at 3 arbitrary points
             // probe 1
-            float z_at_pt_1 = probe_pt(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, Z_RAISE_BEFORE_PROBING);
+            float z_at_pt_1 = probe_pt(ABL_PROBE_PT_1_X, ABL_PROBE_PT_1_Y, Z_RAISE_BEFORE_PROBING, retract_flag, verbose_level);
 
             // probe 2
-            float z_at_pt_2 = probe_pt(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
+            float z_at_pt_2 = probe_pt(ABL_PROBE_PT_2_X, ABL_PROBE_PT_2_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS, retract_flag, verbose_level);
 
             // probe 3
-            float z_at_pt_3 = probe_pt(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
+            float z_at_pt_3 = probe_pt(ABL_PROBE_PT_3_X, ABL_PROBE_PT_3_Y, current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS, retract_flag, verbose_level);
 
             clean_up_after_endstop_move();
 
@@ -1797,6 +1935,9 @@ void process_commands()
 
 #endif // AUTO_BED_LEVELING_GRID
             st_synchronize();
+
+	    if (verbose_level>0)
+		    plan_bed_level_matrix.debug(" \n\nBed Level Correction Matrix:");
 
             // The following code correct the Z height difference from z-probe position and hotend tip position.
             // The Z height on homing is measured by Z-Probe, but the probe is quite far from the hotend.
@@ -1809,6 +1950,10 @@ void process_commands()
             apply_rotation_xyz(plan_bed_level_matrix, x_tmp, y_tmp, z_tmp);         //Apply the correction sending the probe offset
             current_position[Z_AXIS] = z_tmp - real_z + current_position[Z_AXIS];   //The difference is added to current position and sent to planner.
             plan_set_position(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS], current_position[E_AXIS]);
+
+            do_blocking_move_to(current_position[X_AXIS], current_position[Y_AXIS], current_position[Z_AXIS] + Z_RAISE_BETWEEN_PROBINGS);
+
+	    retract_z_probe();
 #ifdef Z_PROBE_SLED
             dock_sled(true, -SLED_DOCKING_OFFSET); // correct for over travel.
 #endif // Z_PROBE_SLED
@@ -1932,7 +2077,7 @@ void process_commands()
         }
       }
       if (IS_SD_PRINTING)
-        LCD_MESSAGEPGM(MSG_RESUMING);
+      LCD_MESSAGEPGM(MSG_RESUMING);
       else
         LCD_MESSAGEPGM(WELCOME_MSG);
     }
@@ -2866,10 +3011,10 @@ Sigma_Exit:
             #endif
             #endif
 			volumetric_enabled = true;
-		  }
+      }
         } else {
           //reserved for setting filament diameter via UFID or filament measuring device
-          break;
+      break;
         }
 		calculate_volumetric_multipliers();
       }
@@ -4396,7 +4541,7 @@ void manage_inactivity(bool ignore_stepper_queue/*=false*/) //default argument s
     // ----------------------------------------------------------------
     if ( killCount >= KILL_DELAY)
     {
-       kill();
+      kill();
     }
   #endif
 
