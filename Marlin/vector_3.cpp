@@ -154,7 +154,7 @@ void matrix_3x3::debug(char* title)
 	{
 		for(int j=0; j<3; j++)
 		{
-			SERIAL_PROTOCOL(matrix[count]);
+			SERIAL_PROTOCOL_F(matrix[count],6);
 			SERIAL_PROTOCOLPGM(" ");
 		        count++;
 		}
