@@ -497,7 +497,7 @@ const bool Z_MAX_ENDSTOP_INVERTING = false; // set to true to invert the logic o
 #define DRIVER_MICROSTEPS_AXIS_X 16
 #define DRIVER_MICROSTEPS_AXIS_Y 16
 #define DRIVER_MICROSTEPS_AXIS_Z 16
-#define DRIVER_MICROSTEPS_AXIS_E 32
+#define DRIVER_MICROSTEPS_AXIS_E 16
 
 // T2 belts
 #define BELT_PITCH_X 2.0
